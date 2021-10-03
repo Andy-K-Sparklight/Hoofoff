@@ -49,6 +49,13 @@ function markUse(id) {
     if (s.count > 0) {
       console.log(`[MG] Profile ${id} has just been acquired!`);
       s.count = s.count - 1;
+      s.nextIP = s.nextIP + 1;
+      if (s.nextIP === 128) {
+        s.nextIP = s.nextIP + 1;
+      }
+      if (s.nextIP > 255) {
+        s.nextIP = 0;
+      }
       let x = JSON.stringify(s);
       if (s.count === 0) {
         console.log(`[MG] Profile ${id} has just been used up!`);
@@ -106,6 +113,7 @@ function create(
     count,
     expires,
     date: new Date().toString(),
+    nextIP: 0,
   };
   return cid;
 }
