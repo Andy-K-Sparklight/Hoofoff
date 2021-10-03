@@ -15,121 +15,142 @@ let ID_MAP = {};
 const fs = require("fs-extra");
 const CryptoJS = require("crypto-js");
 
-
 const TARGET_FILE = "storage.json";
 
 module.exports = {
-    enableIntervalSave,
-    markUse,
-    create, ensureType, loadData,
-    saveDataSync
+  enableIntervalSave,
+  markUse,
+  create,
+  ensureType,
+  loadData,
+  saveDataSync,
 };
 
 function saveDataSync() {
-    console.log("[ST] Saving map data!");
-    mapGC();
-    fs.writeFileSync(TARGET_FILE, JSON.stringify(ID_MAP));
+  console.log("[ST] Saving map data!");
+  mapGC();
+  fs.writeFileSync(TARGET_FILE, JSON.stringify(ID_MAP));
 }
 function enableIntervalSave() {
-    setInterval(() => {
-        saveData();
-    }, 300000);
+  setInterval(() => {
+    saveData();
+  }, 300000);
 }
 function markUse(id) {
-    try {
-        ensureType("string", id);
-    } catch (e) {
-        console.log("[MG] Could not create: invalid arguments");
-        throw e;
+  try {
+    ensureType("string", id);
+  } catch (e) {
+    console.log("[MG] Could not create: invalid arguments");
+    throw e;
+  }
+  id = id.toLowerCase();
+  if (ID_MAP[id] !== undefined) {
+    let s = ID_MAP[id];
+    if (s.count > 0) {
+      console.log(`[MG] Profile ${id} has just been acquired!`);
+      s.count = s.count - 1;
+      let x = JSON.stringify(s);
+      if (s.count === 0) {
+        console.log(`[MG] Profile ${id} has just been used up!`);
+        delete ID_MAP[id];
+      }
+      return x;
+    } else {
+      console.log(`[MG] Profile ${id} has already been used up!`);
+      delete ID_MAP[id];
     }
-    id = id.toLowerCase();
-    if (ID_MAP[id] !== undefined) {
-        let s = ID_MAP[id];
-        if (s.count > 0) {
-            console.log(`[MG] Profile ${id} has just been acquired!`)
-            s.count = s.count - 1;
-            let x = JSON.stringify(s);
-            if (s.count === 0) {
-                console.log(`[MG] Profile ${id} has just been used up!`);
-                delete ID_MAP[id];
-            }
-            return x;
-        } else {
-            console.log(`[MG] Profile ${id} has already been used up!`);
-            delete ID_MAP[id];
-        }
-    }
+  }
 }
 
-function create(baseVersion, premium, network, ip, port, password, message, count, expires) {
-    try {
-        ensureType("string", baseVersion, network, ip, password, message);
-        ensureType("number", port, count, expires);
-        ensureType("boolean", premium);
-    } catch (e) {
-        console.log("[MG] Could not create: invalid arguments");
-        throw e;
-    }
-    let cid;
-    let tries = 0;
-    do {
-        cid = CryptoJS.SHA1(Math.random().toString()).toString().slice(0, 6);
-    } while (ID_MAP[cid] !== undefined && tries < 32) {
-        tries++;
-        cid = CryptoJS.SHA1(Math.random().toString()).toString().slice(0, 6);
-    }
-    if (tries >= 32) {
-        throw "[MG] Could not create: failed to allocate id";
-    }
-    cid = cid.toLowerCase();
-    console.log(`[MG] Creating profile for ${cid}`);
-    ID_MAP[cid] = {
-        baseVersion, premium, network, ip, port, password, message, count, expires, date: new Date().toString(),
-    }
-    return cid;
+function create(
+  baseVersion,
+  premium,
+  network,
+  ip,
+  port,
+  password,
+  message,
+  count,
+  expires
+) {
+  try {
+    ensureType("string", baseVersion, network, ip, password, message);
+    ensureType("number", port, count, expires);
+    ensureType("boolean", premium);
+  } catch (e) {
+    console.log("[MG] Could not create: invalid arguments");
+    throw e;
+  }
+  let cid;
+  let tries = 0;
+  do {
+    cid = CryptoJS.SHA1(Math.random().toString()).toString().slice(0, 6);
+  } while (ID_MAP[cid] !== undefined && tries < 32);
+  {
+    tries++;
+    cid = CryptoJS.SHA1(Math.random().toString()).toString().slice(0, 6);
+  }
+  if (tries >= 32) {
+    throw "[MG] Could not create: failed to allocate id";
+  }
+  cid = cid.toLowerCase();
+  console.log(`[MG] Creating profile for ${cid}`);
+  ID_MAP[cid] = {
+    baseVersion,
+    premium,
+    network,
+    ip,
+    port,
+    password,
+    message,
+    count,
+    expires,
+    date: new Date().toString(),
+  };
+  return cid;
 }
 
 function ensureType(type, ...vals) {
-    for (let c of vals) {
-        if (typeof c !== type) {
-            throw `Invalid type for ${c}, expected ${type}`;
-        }
+  for (let c of vals) {
+    if (typeof c !== type) {
+      throw `Invalid type for ${c}, expected ${type}`;
     }
+  }
 }
 
 async function saveData() {
-    console.log("[ST] Saving map data!");
-    mapGC();
-    await fs.writeFile(TARGET_FILE, JSON.stringify(ID_MAP));
+  console.log("[ST] Saving map data!");
+  mapGC();
+  await fs.writeFile(TARGET_FILE, JSON.stringify(ID_MAP));
 }
 
 async function loadData() {
-    console.log("[ST] Loading map data!");
-    try {
-        ID_MAP = await fs.readJSON(TARGET_FILE);
-    } catch {
-        console.log("[ST] Map data not exist or corrupted, created.");
-        ID_MAP = {};
-    }
+  console.log("[ST] Loading map data!");
+  try {
+    ID_MAP = await fs.readJSON(TARGET_FILE);
+  } catch {
+    console.log("[ST] Map data not exist or corrupted, created.");
+    ID_MAP = {};
+  }
 }
 
 function mapGC() {
-    console.log("[GC] GC start.");
-    let cDate = new Date().getTime();
-    for (let b of Object.keys(ID_MAP)) {
-        let struct = ID_MAP[b];
-        let expires = struct.expires;
-        let date = new Date(struct.date).getTime();
-        if ((cDate - date) > expires) {
-            console.log(`[GC] Outdated code ${b}, disposed.`);
-            delete ID_MAP[b];
-            return;
-        }
-        if (struct.count <= 0) {
-            console.log(`[GC] Used up code ${b}, disposed.`);
-            delete ID_MAP[b];
-            return;
-        }
+  console.log("[GC] GC start.");
+  let cDate = new Date().getTime();
+  for (let b of Object.keys(ID_MAP)) {
+    let struct = ID_MAP[b];
+    let expires = struct.expires;
+    let date = new Date(struct.date).getTime();
+    if (cDate - date > expires) {
+      console.log(`[GC] Outdated code ${b}, disposed.`);
+      delete ID_MAP[b];
+      return;
     }
-    console.log("[GC] GC end.");
+    if (struct.count === 0) {
+      console.log(`[GC] Used up code ${b}, disposed.`);
+      delete ID_MAP[b];
+      return;
+    }
+  }
+  console.log("[GC] GC end.");
 }
