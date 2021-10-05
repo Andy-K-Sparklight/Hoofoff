@@ -1,5 +1,5 @@
 const { Server } = require("ws");
-const { create, enableIntervalSave, markUse, loadData, saveDataSync } = require("./Data")
+const { create, enableIntervalSave, markUse, loadData, saveDataSync, deactive } = require("./Data")
 
 const SERVER = new Server({ port: 30280 });
 const MAX_CONN = 200;
@@ -59,15 +59,28 @@ Use:
 Create:
 {
     type: "create",
+    secret: string, used when deactive code
     ... the rest properties in Data.js
 }
+
+Deactive:
+{
+    type: "deactive",
+    secret: string, uploaded when creating
+    id: "abcdef"
+}
 */
+
+
 function handleData(d) {
     if (d.type === "use") {
         return markUse(d.id);
     }
     if (d.type === "create") {
-        return create(d.baseVersion, d.premium, d.network, d.ip, d.port, d.password, d.message, d.count, d.expires);
+        return create(d.baseVersion, d.premium, d.network, d.ip, d.port, d.password, d.message, d.count, d.expires, d.secret);
+    }
+    if (d.type === "deactive") {
+        return deactive(d.id, d.secret);
     }
     return "Invalid type!"
 }

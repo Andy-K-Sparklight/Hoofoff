@@ -12,11 +12,12 @@
 */
 
 let ID_MAP = {};
+let SECRET_MAP = {};
 const fs = require("fs-extra");
 const CryptoJS = require("crypto-js");
 
 const TARGET_FILE = "storage.json";
-
+const SECRET_FILE = "secret.json";
 module.exports = {
   enableIntervalSave,
   markUse,
@@ -24,12 +25,24 @@ module.exports = {
   ensureType,
   loadData,
   saveDataSync,
+  deactive
 };
+
+function deactive(id, secret) {
+  const s = SECRET_MAP[id];
+  if (s === secret) {
+    delete ID_MAP[id];
+    delete SECRET_MAP[id];
+    return "Delete successful."
+  }
+  return "Invalid secret!"
+}
 
 function saveDataSync() {
   console.log("[ST] Saving map data!");
   mapGC();
   fs.writeFileSync(TARGET_FILE, JSON.stringify(ID_MAP));
+  fs.writeFileSync(SECRET_FILE, JSON.stringify(SECRET_MAP));
 }
 function enableIntervalSave() {
   setInterval(() => {
@@ -67,6 +80,7 @@ function markUse(id) {
       delete ID_MAP[id];
     }
   }
+  return "Not found."
 }
 
 function create(
@@ -78,10 +92,11 @@ function create(
   password,
   message,
   count,
-  expires
+  expires,
+  secret
 ) {
   try {
-    ensureType("string", baseVersion, network, ip, password, message);
+    ensureType("string", baseVersion, network, ip, password, message, secret);
     ensureType("number", port, count, expires);
     ensureType("boolean", premium);
   } catch (e) {
@@ -115,6 +130,7 @@ function create(
     date: new Date().toString(),
     nextIP: 0,
   };
+  SECRET_MAP[cid] = secret;
   return cid;
 }
 
@@ -130,15 +146,18 @@ async function saveData() {
   console.log("[ST] Saving map data!");
   mapGC();
   await fs.writeFile(TARGET_FILE, JSON.stringify(ID_MAP));
+  await fs.writeFile(SECRET_FILE, JSON.stringify(SECRET_MAP));
 }
 
 async function loadData() {
   console.log("[ST] Loading map data!");
   try {
     ID_MAP = await fs.readJSON(TARGET_FILE);
+    SECRET_MAP = await fs.readJSON(SECRET_FILE);
   } catch {
     console.log("[ST] Map data not exist or corrupted, created.");
     ID_MAP = {};
+    SECRET_MAP = {};
   }
 }
 
@@ -152,13 +171,19 @@ function mapGC() {
     if (cDate - date > expires) {
       console.log(`[GC] Outdated code ${b}, disposed.`);
       delete ID_MAP[b];
-      return;
+      continue;
     }
     if (struct.count === 0) {
       console.log(`[GC] Used up code ${b}, disposed.`);
       delete ID_MAP[b];
-      return;
+      continue;
     }
   }
+  for (let x of Object.keys(SECRET_MAP)) {
+    if (ID_MAP[x] === undefined) {
+      delete SECRET_MAP[x];
+    }
+  }
+
   console.log("[GC] GC end.");
 }
