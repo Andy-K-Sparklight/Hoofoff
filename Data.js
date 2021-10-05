@@ -33,6 +33,7 @@ function deactive(id, secret) {
   if (s === secret) {
     delete ID_MAP[id];
     delete SECRET_MAP[id];
+    console.log(`Profile ${id} deactivated.`);
     return "Delete successful."
   }
   return "Invalid secret!"
